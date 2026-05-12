@@ -41,6 +41,7 @@ jobs:
           npx prisma db push
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
       # 3. Build Image menggunakan Cloud Build
       - name: Build and Push Docker Image
