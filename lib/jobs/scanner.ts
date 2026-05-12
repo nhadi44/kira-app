@@ -5,15 +5,24 @@ import fs from "fs/promises";
 import path from "path";
 import admZip from "adm-zip";
 
-export async function runBackgroundAudit(auditId: string, zipPath: string, scanMode: "Quick" | "Deep") {
+import { downloadFileFromGCS, deleteFileFromGCS } from "@/lib/gcs";
+
+export async function runBackgroundAudit(auditId: string, filePath: string, scanMode: "Quick" | "Deep", isGcs: boolean = false) {
   const tempDir = path.join(process.cwd(), "tmp", `audit-${auditId}`);
 
   try {
-    // Stage 1: Extracting
     await updateStage(auditId, "EXTRACTING", 10, "Extracting project architecture...");
     
     await fs.mkdir(tempDir, { recursive: true });
-    const zip = new admZip(zipPath);
+    
+    let localZipPath = filePath;
+    if (isGcs) {
+      localZipPath = path.join(tempDir, "project-downloaded.zip");
+      console.log(`[SCANNER] Downloading ${filePath} from GCS to ${localZipPath}`);
+      await downloadFileFromGCS(filePath, localZipPath);
+    }
+
+    const zip = new admZip(localZipPath);
     zip.extractAllTo(tempDir, true);
 
     const files = await getAllFiles(tempDir);
@@ -138,7 +147,11 @@ export async function runBackgroundAudit(auditId: string, zipPath: string, scanM
     // Cleanup
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
-      await fs.unlink(zipPath);
+      if (!isGcs) {
+        await fs.unlink(filePath).catch(() => {});
+      } else {
+        await deleteFileFromGCS(filePath);
+      }
     } catch (e) {
       console.error("Cleanup error:", e);
     }

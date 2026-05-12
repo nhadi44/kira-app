@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ProjectUploader } from "@/components/dashboard/ProjectUploader";
 import { AuditForm } from "@/components/dashboard/AuditForm";
-import { processProjectAudit } from "@/actions/audit";
+import { processProjectAudit, getUploadUrl } from "@/actions/audit";
 import { useRouter } from "react-router-dom"; // Wait, this is Next.js
 import { useRouter as useNextRouter } from "next/navigation";
 import { Shield, FileCode, FolderArchive, Zap, ShieldAlert, Rocket, Microscope } from "lucide-react";
@@ -35,13 +35,29 @@ export default function NewScanPage() {
     
     setIsProcessing(true);
     setShowNameModal(false);
-    
-    const formData = new FormData();
-    formData.append("projectArchive", pendingFile);
-    formData.append("projectName", projectName.trim());
-    formData.append("scanMode", scanMode);
-
     try {
+      // 1. Dapatkan URL Upload (Signed URL)
+      const { url, uniqueFilename } = await getUploadUrl(pendingFile.name, pendingFile.type || "application/zip");
+
+      // 2. Upload langsung ke GCS (Bypass Cloud Run 32MB Limit)
+      const uploadResponse = await fetch(url, {
+        method: "PUT",
+        body: pendingFile,
+        headers: {
+          "Content-Type": pendingFile.type || "application/zip",
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Gagal mengunggah file ke cloud storage.");
+      }
+
+      // 3. Beri tahu server untuk mulai memindai file di GCS
+      const formData = new FormData();
+      formData.append("gcsFilename", uniqueFilename);
+      formData.append("projectName", projectName.trim());
+      formData.append("scanMode", scanMode);
+
       const result = await processProjectAudit(formData);
       if (result.success && result.auditId) {
         router.push(`/dashboard/scan/${result.auditId}`);
@@ -49,8 +65,9 @@ export default function NewScanPage() {
         setErrorMessage(result.error || "Failed to process project audit");
         setShowErrorModal(true);
       }
-    } catch (e) {
-      setErrorMessage("An unexpected error occurred during scanning");
+    } catch (e: any) {
+      console.error(e);
+      setErrorMessage(e.message || "An unexpected error occurred during scanning");
       setShowErrorModal(true);
     } finally {
       setIsProcessing(false);
