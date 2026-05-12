@@ -1,7 +1,12 @@
 import { Storage } from "@google-cloud/storage";
 
 // Gunakan credentials bawaan (akan otomatis terdeteksi di Cloud Run)
-const storage = new Storage();
+// Jika di lokal, gunakan file key dari .env
+const storage = new Storage(
+  process.env.GOOGLE_APPLICATION_CREDENTIALS 
+    ? { keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS.replace(/["']/g, "") } 
+    : undefined
+);
 
 const BUCKET_NAME = process.env.NEXT_PUBLIC_GCS_BUCKET_NAME || "kira-project-archives-gen-lang-client-0046546237";
 

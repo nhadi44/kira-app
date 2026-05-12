@@ -100,9 +100,13 @@ export async function runBackgroundAudit(auditId: string, filePath: string, scan
 
     const result = await generateWithRetry(auditId, prompt);
     const responseText = result.response.text();
-    const jsonString = responseText.replace(/```json|```/g, "").trim();
     
-    console.log(`[AI_RESPONSE_RAW] [${auditId}]:`, jsonString);
+    // Pastikan kita hanya mengambil isi dari { pertama hingga } terakhir
+    // Ini mengabaikan karakter 'sampah' atau markdown yang mungkin ditambahkan AI
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const jsonString = jsonMatch ? jsonMatch[0] : responseText.replace(/```json|```/g, "").trim();
+    
+    console.log(`[AI_RESPONSE_RAW_SNIPPET] [${auditId}]:`, jsonString.substring(0, 200) + "...");
     const rawJson = JSON.parse(jsonString);
 
     // Stage 3: Correlating
