@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Prisma Migration
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npx prisma db push
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
