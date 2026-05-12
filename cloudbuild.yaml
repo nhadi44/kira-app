@@ -1,0 +1,27 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/kira-repo/kira-app:latest'
+      - '--build-arg'
+      - 'DATABASE_URL=$_DATABASE_URL'
+      - '--build-arg'
+      - 'DIRECT_URL=$_DIRECT_URL'
+      - '--build-arg'
+      - 'GEMINI_API_KEY=$_GEMINI_API_KEY'
+      - '--build-arg'
+      - 'CLERK_SECRET_KEY=$_CLERK_SECRET_KEY'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$_NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY'
+      - '.'
+
+images:
+  - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/kira-repo/kira-app:latest'
+
+substitutions:
+  _DATABASE_URL: ''
+  _DIRECT_URL: ''
+  _GEMINI_API_KEY: ''
+  _CLERK_SECRET_KEY: ''
+  _NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ''
