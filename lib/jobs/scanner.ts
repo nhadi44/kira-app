@@ -4,11 +4,12 @@ import { auditResponseSchema } from "@/lib/validations/audit";
 import fs from "fs/promises";
 import path from "path";
 import admZip from "adm-zip";
+import os from "os";
 
 import { downloadFileFromGCS, deleteFileFromGCS } from "@/lib/gcs";
 
 export async function runBackgroundAudit(auditId: string, filePath: string, scanMode: "Quick" | "Deep", isGcs: boolean = false) {
-  const tempDir = path.join(process.cwd(), "tmp", `audit-${auditId}`);
+  const tempDir = path.join(os.tmpdir(), `audit-${auditId}`);
 
   try {
     await updateStage(auditId, "EXTRACTING", 10, "Extracting project architecture...");
