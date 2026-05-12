@@ -11,7 +11,7 @@ export const geminiModel = genAI.getGenerativeModel({
   // - "gemini-2.0-flash" (Recommended: 4M TPM)
   // - "gemini-2.5-pro"   (High Quality: 2M TPM)
   // - "gemini-2.5-flash" (Standard: 1M TPM)
-  model: "gemini-2.5-pro",
+  model: "gemini-2.0-flash",
   generationConfig: {
     temperature: 0.1,
     responseMimeType: "application/json",
