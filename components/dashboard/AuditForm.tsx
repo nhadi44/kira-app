@@ -28,7 +28,7 @@ export function AuditForm({ initialData }: AuditFormProps) {
     const formData = new FormData(e.currentTarget);
     
     startTransition(async () => {
-      const result = await processAudit(formData);
+      const result = await processAudit({ projectName, codeSnippet });
       if (result.success && result.auditId) {
         router.push(`/dashboard/report/${result.auditId}`);
       } else if (result.error) {

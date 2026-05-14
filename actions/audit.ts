@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { geminiModel } from "@/lib/gemini";
-import { auditResponseSchema, ScanMode, AuditInput } from "@/lib/validations/audit";
+import { auditSchema, auditResponseSchema, ScanMode, AuditInput } from "@/lib/validations/audit";
 import { storage } from "@/lib/storage";
 import { runBackgroundAudit } from "@/lib/jobs/scanner";
 import fs from "fs/promises";
@@ -81,13 +81,14 @@ export async function processAudit(input: AuditInput) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
+  const validatedInput = auditSchema.parse(input);
   await syncUser();
 
   const audit = await prisma.audit.create({
     data: {
       userId,
-      projectName: input.projectName,
-      status: "PROCESSING",
+      projectName: validatedInput.projectName,
+      status: "PENDING",
     },
   });
 
