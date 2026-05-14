@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { geminiModel } from "@/lib/gemini";
 import { auditSchema, auditResponseSchema, ScanMode, AuditInput } from "@/lib/validations/audit";
 import { storage } from "@/lib/storage";
-import { runBackgroundAudit } from "@/lib/jobs/scanner";
+import { runBackgroundAudit, runBackgroundSnippetAudit } from "@/lib/jobs/scanner";
 import fs from "fs/promises";
 import path from "path";
 
@@ -84,67 +84,26 @@ export async function processAudit(input: AuditInput) {
   const validatedInput = auditSchema.parse(input);
   await syncUser();
 
-  const audit = await prisma.audit.create({
-    data: {
-      userId,
-      projectName: validatedInput.projectName,
-      status: "PENDING",
-    },
-  });
-
   try {
-    const prompt = `
-      Lakukan analisis keamanan pada kode berikut:
-      ${input.codeSnippet}
-      
-      Berikan output dalam valid JSON minified saja.
-      Jangan gunakan markdown.
-      
-      FORMAT:
-      {
-        "score": number,
-        "executiveSummary": "AI-generated professional summary",
-        "findings": [
-          {
-            "type": string,
-            "severity": "Critical" | "High" | "Medium" | "Low",
-            "description": string,
-            "remediation": string,
-            "vulnerableCode": string,
-            "confidence": "High" | "Medium" | "Low",
-            "attackScenario": string,
-            "category": string
-          }
-        ]
-      }
-    `;
-
-    const result = await geminiModel.generateContent(prompt);
-    const responseText = result.response.text();
-    const jsonString = responseText.replace(/```json|```/g, "").trim();
-    const rawJson = JSON.parse(jsonString);
-
-    const validatedResponse = auditResponseSchema.parse(rawJson);
-
-    await prisma.audit.update({
-      where: { id: audit.id },
+    const audit = await prisma.audit.create({
       data: {
-        score: validatedResponse.score,
-        executiveSummary: validatedResponse.executiveSummary,
-        findings: validatedResponse.findings as any,
-        status: "COMPLETED",
+        userId,
+        projectName: validatedInput.projectName,
+        status: "QUEUED",
+        startedAt: new Date(),
       },
     });
 
-    revalidatePath("/dashboard/ledger");
+    // Run in background using Next.js 15 'after'
+    after(async () => {
+      await runBackgroundSnippetAudit(audit.id, validatedInput.codeSnippet);
+      revalidatePath("/dashboard/ledger");
+    });
+
     return { success: true, auditId: audit.id };
 
   } catch (error) {
     console.error("[AUDIT_ERROR]", error);
-    await prisma.audit.update({
-      where: { id: audit.id },
-      data: { status: "FAILED" },
-    });
-    return { error: "Failed to process audit" };
+    return { error: "Failed to initialize security scan. Please try again." };
   }
 }

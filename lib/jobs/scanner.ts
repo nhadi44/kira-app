@@ -214,6 +214,126 @@ async function getCodeContext(files: string[], baseDir: string): Promise<string>
   return context;
 }
 
+export async function runBackgroundSnippetAudit(auditId: string, codeSnippet: string) {
+  try {
+    await updateStage(auditId, "EXTRACTING", 10, "Parsing code snippet...");
+    await new Promise(r => setTimeout(r, 800));
+
+    await updateStage(auditId, "ANALYZING", 25, "Building security context...");
+    await new Promise(r => setTimeout(r, 500));
+    await updateStage(auditId, "ANALYZING", 40, "Scanning code patterns for vulnerabilities...");
+
+    const prompt = `
+      You are KIRA (Knowledge Integrity & Risk Auditor), a Senior Security Architect.
+      Perform a deep intelligence security audit on the following code snippet.
+      
+      CODE CONTENT:
+      ${codeSnippet}
+      
+      IDENTIFICATION GOALS:
+      1. Injection Vulnerabilities (SQL, Command, XSS)
+      2. Broken Access Control & Auth issues
+      3. Hardcoded Secrets (API Keys, Tokens, JWT Secrets)
+      4. PII Leakage (Email, Phone, Personal Data exposure)
+      5. Misconfigurations (Insecure headers, open permissions)
+      6. Dependency risks
+      
+      OUTPUT REQUIREMENTS:
+      - All output MUST be in English.
+      - Return ONLY a valid minified JSON.
+      - Do NOT use markdown formatting.
+      
+      FOR EACH FINDING:
+      - type: Vulnerability name.
+      - severity: "Critical" | "High" | "Medium" | "Low".
+      - description: Technical explanation.
+      - remediation: Brief fix.
+      - structuredRemediation: { immediateFix, recommendedPattern, validationRecommendation, regressionProtection }
+      - vulnerableCode.
+      
+      JSON FORMAT:
+      {
+        "score": number,
+        "executiveSummary": "string",
+        "findings": [
+          {
+            "type": "string",
+            "category": "Authentication" | "Infrastructure" | "Dependency" | "PII Exposure" | "Access Control" | "Configuration" | "Injection",
+            "severity": "Critical" | "High" | "Medium" | "Low",
+            "description": "string",
+            "remediation": "string",
+            "owasp": "string",
+            "cwe": "string",
+            "exploitability": "Low" | "Moderate" | "High" | "Critical",
+            "affectedComponent": "string",
+            "executiveRisk": "string",
+            "whyItMatters": "string",
+            "structuredRemediation": {
+              "immediateFix": "string",
+              "recommendedPattern": "string",
+              "validationRecommendation": "string",
+              "regressionProtection": "string"
+            },
+            "exploitabilityReasoning": "string",
+            "validationTest": "string",
+            "testFramework": "string",
+            "vulnerableCode": "string"
+          }
+        ]
+      }
+    `;
+
+    const result = await generateWithRetry(auditId, prompt);
+    const responseText = result.response.text();
+
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const jsonString = jsonMatch ? jsonMatch[0] : responseText.replace(/```json|```/g, "").trim();
+
+    console.log(`[AI_RESPONSE_RAW_SNIPPET] [${auditId}]:`, jsonString.substring(0, 200) + "...");
+    const rawJson = JSON.parse(jsonString);
+
+    // Stage 3: Correlating
+    await updateStage(auditId, "CORRELATING", 65, "Correlating attack vectors...");
+    await new Promise(r => setTimeout(r, 800));
+
+    // Stage 4: Generating Tests
+    await updateStage(auditId, "GENERATING_TESTS", 85, "Designing defensive validation suites...");
+    await new Promise(r => setTimeout(r, 800));
+
+    // Stage 5: Finalizing
+    await updateStage(auditId, "FINALIZING", 95, "Finalizing intelligence report...");
+
+    const { auditResponseSchema } = await import("@/lib/validations/audit");
+    const validatedResponse = auditResponseSchema.parse(rawJson);
+
+    await prisma.audit.update({
+      where: { id: auditId },
+      data: {
+        score: validatedResponse.score,
+        executiveSummary: validatedResponse.executiveSummary,
+        findings: validatedResponse.findings as any,
+        status: "COMPLETED",
+        progress: 100,
+        currentStage: "Completed",
+        completedAt: new Date(),
+      },
+    });
+
+  } catch (error: any) {
+    console.error(`[BACKGROUND_SNIPPET_ERROR] [${auditId}]`, error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error during snippet analysis";
+
+    await prisma.audit.update({
+      where: { id: auditId },
+      data: {
+        status: "FAILED",
+        failedAt: new Date(),
+        errorMessage: errorMessage,
+      },
+    });
+  }
+}
+
 async function generateWithRetry(auditId: string, prompt: string, retries = 5) {
   for (let i = 0; i < retries; i++) {
     try {

@@ -30,7 +30,7 @@ export function AuditForm({ initialData }: AuditFormProps) {
     startTransition(async () => {
       const result = await processAudit({ projectName, codeSnippet });
       if (result.success && result.auditId) {
-        router.push(`/dashboard/report/${result.auditId}`);
+        router.push(`/dashboard/scan/${result.auditId}`);
       } else if (result.error) {
         setErrorMessage(typeof result.error === 'string' ? result.error : "Validation failed");
         setShowErrorModal(true);
