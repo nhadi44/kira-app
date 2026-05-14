@@ -6,7 +6,6 @@ import {
   LayoutDashboard, 
   PlusSquare, 
   FileText, 
-  Settings, 
   Shield,
   Menu,
   X
@@ -20,7 +19,7 @@ const navItems = [
   { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
   { label: "New Scan", icon: PlusSquare, href: "/dashboard/new-scan" },
   { label: "Audit Ledger", icon: FileText, href: "/dashboard/ledger" },
-  { label: "Settings", icon: Settings, href: "/dashboard/settings" },
+
 ];
 
 export function Sidebar() {
